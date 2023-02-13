@@ -1,6 +1,8 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:recipes/ui/colors.dart';
+import 'package:recipes/ui/widgets/custom_dropdown.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RecipeList extends StatefulWidget {
@@ -137,26 +139,45 @@ class _RecipeListState extends State<RecipeList> {
               child: Row(
                 children: <Widget>[
                   Expanded(
-                    child: TextField(
-                      decoration: const InputDecoration(
-                          border: InputBorder.none, hintText: 'Search'),
-                      autofocus: false,
-                      controller: searchTextController,
-                      onChanged: (query) => {
-                        if (query.length >= 3)
-                          {
-                            // Rebuild list
-                            setState(
-                              () {
-                                currentSearchList.clear();
-                                currentCount = 0;
-                                currentEndPosition = pageCount;
-                                currentStartPosition = 0;
-                              },
-                            )
-                          }
-                      },
-                    ),
+                      //3
+                      child: TextField(
+                    decoration: const InputDecoration(
+                        border: InputBorder.none, hintText: 'Search'),
+                    autofocus: false,
+                    //4
+                    textInputAction: TextInputAction.done,
+                    //5
+                    onSubmitted: (value) {
+                      startSearch(searchTextController.text);
+                    },
+                    controller: searchTextController,
+                  )),
+                  //6
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.arrow_drop_down, color: lightGrey),
+                    //7
+                    onSelected: (String value) {
+                      searchTextController.text = value;
+                      startSearch(searchTextController.text);
+                    },
+                    itemBuilder: (BuildContext context) {
+                      //8
+                      return previousSearches
+                          .map<CustomDropdownMenuItem<String>>((String value) {
+                        return CustomDropdownMenuItem<String>(
+                          value: value,
+                          text: value,
+                          callback: () {
+                            setState(() {
+                              //9
+                              previousSearches.remove(value);
+                              savePreviousSearches();
+                              Navigator.pop(context);
+                            });
+                          },
+                        );
+                      }).toList();
+                    },
                   ),
                 ],
               ),
