@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'colors.dart';
 import 'myrecipes/my_recipes_list.dart';
 import 'recipes/recipe_list.dart';
 import 'shopping/shopping_list.dart';
+import 'package:flutter/material.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -18,8 +18,6 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   List<Widget> pageList = <Widget>[];
-
-  //Add index key
   static const String prefSelectedIndexKey = 'selectedIndex';
 
   @override
@@ -28,23 +26,16 @@ class _MainScreenState extends State<MainScreen> {
     pageList.add(const RecipeList());
     pageList.add(const MyRecipesList());
     pageList.add(const ShoppingList());
-    //Call getCurrentIndex
     getCurrentIndex();
   }
 
-  //Add saveCurrentIndex
   void saveCurrentIndex() async {
-    //1
     final prefs = await SharedPreferences.getInstance();
-    //2
     prefs.setInt(prefSelectedIndexKey, _selectedIndex);
   }
 
-  //Add getCurrentIndex
   void getCurrentIndex() async {
-    //1
     final prefs = await SharedPreferences.getInstance();
-    //2
     if (prefs.containsKey(prefSelectedIndexKey)) {
       setState(() {
         final index = prefs.getInt(prefSelectedIndexKey);

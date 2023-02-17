@@ -1,9 +1,16 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:recipes/ui/colors.dart';
-import 'package:recipes/ui/widgets/custom_dropdown.dart';
+import 'package:flutter/services.dart';
+import 'package:recipes/network/recipe_model.dart';
+import 'package:recipes/ui/recipes/recipe_details.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../network/recipe_service.dart';
+import '../colors.dart';
+import '../recipe_card.dart';
+import '../widgets/custom_dropdown.dart';
 
 class RecipeList extends StatefulWidget {
   const RecipeList({Key? key}) : super(key: key);
@@ -13,11 +20,12 @@ class RecipeList extends StatefulWidget {
 }
 
 class _RecipeListState extends State<RecipeList> {
-  // TODO: Add key
   static const String prefSearchKey = 'previousSearches';
+
   late TextEditingController searchTextController;
   final ScrollController _scrollController = ScrollController();
-  List currentSearchList = [];
+
+  List<APIHits> currentSearchList = [];
   int currentCount = 0;
   int currentStartPosition = 0;
   int currentEndPosition = 20;
@@ -25,18 +33,14 @@ class _RecipeListState extends State<RecipeList> {
   bool hasMore = false;
   bool loading = false;
   bool inErrorState = false;
-
-  // TODO: Add searches array
   List<String> previousSearches = <String>[];
 
-  // TODO: Add _currentRecipes1
+  //Add _currentRecipes1
+  //APIRecipeQuery? _currentRecipes1;
 
   @override
   void initState() {
     super.initState();
-    // TODO: Call loadRecipes()
-
-    //Call getPreviousSearches
     getPreviousSearches();
     searchTextController = TextEditingController(text: '');
     _scrollController.addListener(() {
@@ -59,7 +63,15 @@ class _RecipeListState extends State<RecipeList> {
     });
   }
 
-  // TODO: Add loadRecipes
+  //Add getRecipesData() here
+  Future<APIRecipeQuery> getRecipeData(String query, int from, int to) async {
+    //2
+    final recipeJson = await RecipeService().getRecipes(query, from, to);
+    //3
+    final recipeMap = json.decode(recipeJson);
+    //4
+    return APIRecipeQuery.fromJson(recipeMap);
+  }
 
   @override
   void dispose() {
@@ -67,23 +79,15 @@ class _RecipeListState extends State<RecipeList> {
     super.dispose();
   }
 
-  // Add savePreviousSearches
   void savePreviousSearches() async {
-    //1
     final prefs = await SharedPreferences.getInstance();
-    //2
     prefs.setStringList(prefSearchKey, previousSearches);
   }
 
-  // Add getPreviousSearches
   void getPreviousSearches() async {
-    //1
     final prefs = await SharedPreferences.getInstance();
-    //2
     if (prefs.containsKey(prefSearchKey)) {
-      //3
       final searches = prefs.getStringList(prefSearchKey);
-      //4
       if (searches != null) {
         previousSearches = searches;
       } else {
@@ -117,14 +121,10 @@ class _RecipeListState extends State<RecipeList> {
         padding: const EdgeInsets.all(4.0),
         child: Row(
           children: [
-            // Replace
             IconButton(
               icon: const Icon(Icons.search),
-              //1
               onPressed: () {
-                //2
                 startSearch(searchTextController.text);
-                //3
                 final currentFocus = FocusScope.of(context);
                 if (!currentFocus.hasPrimaryFocus) {
                   currentFocus.unfocus();
@@ -134,44 +134,38 @@ class _RecipeListState extends State<RecipeList> {
             const SizedBox(
               width: 6.0,
             ),
-            // *** Start Replace
             Expanded(
               child: Row(
                 children: <Widget>[
                   Expanded(
-                      //3
                       child: TextField(
                     decoration: const InputDecoration(
                         border: InputBorder.none, hintText: 'Search'),
                     autofocus: false,
-                    //4
                     textInputAction: TextInputAction.done,
-                    //5
                     onSubmitted: (value) {
                       startSearch(searchTextController.text);
                     },
                     controller: searchTextController,
                   )),
-                  //6
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.arrow_drop_down, color: lightGrey),
-                    //7
+                    icon: const Icon(
+                      Icons.arrow_drop_down,
+                      color: lightGrey,
+                    ),
                     onSelected: (String value) {
                       searchTextController.text = value;
                       startSearch(searchTextController.text);
                     },
                     itemBuilder: (BuildContext context) {
-                      //8
                       return previousSearches
                           .map<CustomDropdownMenuItem<String>>((String value) {
                         return CustomDropdownMenuItem<String>(
-                          value: value,
                           text: value,
+                          value: value,
                           callback: () {
                             setState(() {
-                              //9
                               previousSearches.remove(value);
-                              savePreviousSearches();
                               Navigator.pop(context);
                             });
                           },
@@ -182,45 +176,120 @@ class _RecipeListState extends State<RecipeList> {
                 ],
               ),
             ),
-            // *** End Replace
           ],
         ),
       ),
     );
   }
 
-  //Add startSearch
   void startSearch(String value) {
-    //1
     setState(() {
-      //2
       currentSearchList.clear();
       currentCount = 0;
       currentEndPosition = pageCount;
       currentStartPosition = 0;
       hasMore = true;
       value = value.trim();
-
-      //3
       if (!previousSearches.contains(value)) {
-        //4
         previousSearches.add(value);
-        //5
         savePreviousSearches();
       }
     });
   }
 
-  // TODO: Replace method
+  //TODO: Replace this _buildRecipeLoader definition
   Widget _buildRecipeLoader(BuildContext context) {
+    //1
     if (searchTextController.text.length < 3) {
       return Container();
     }
-    // Show a loading indicator while waiting for the movies
-    return const Center(
-      child: CircularProgressIndicator(),
+    return FutureBuilder<APIRecipeQuery>(
+      future: getRecipeData(searchTextController.text.trim(),
+          currentStartPosition, currentEndPosition),
+      builder: (context, snapshot) {
+        //5
+        if (snapshot.connectionState == ConnectionState.done) {
+          //6
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                snapshot.error.toString(),
+                textAlign: TextAlign.center,
+                textScaleFactor: 1.3,
+              ),
+            );
+          }
+          //7
+          loading = false;
+          final query = snapshot.data;
+          inErrorState = false;
+          if (query != null) {
+            currentCount = query.count;
+            hasMore = query.more;
+            currentSearchList.addAll(query.hits);
+            //8
+            if (query.to < currentEndPosition) {
+              currentEndPosition = query.to;
+            }
+          }
+          //9
+          return _buildRecipeList(context, currentSearchList);
+        }
+        //10
+        else {
+          //1
+          if (currentCount == 0) {
+            //Show a loading indicator while waiting for the recipes
+            return const Center(child: CircularProgressIndicator());
+          } else {
+            //12
+            return _buildRecipeList(context, currentSearchList);
+          }
+        }
+      },
     );
   }
 
-// TODO: Add _buildRecipeCard
+// TODO: Add _buildRecipeList()
+  Widget _buildRecipeList(BuildContext recipeListContext, List<APIHits> hits) {
+    //2
+    final size = MediaQuery.of(context).size;
+    const itemHeight = 310;
+    final itemWidth = size.width / 2;
+    //3
+    return Flexible(
+      //4
+      child: GridView.builder(
+        //5
+        controller: _scrollController,
+        //6
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: (itemWidth / itemHeight),
+        ),
+        itemCount: hits.length,
+        //8
+        itemBuilder: (BuildContext context, int index) {
+          return _buildRecipeCard(recipeListContext, hits, index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildRecipeCard(
+      BuildContext topLevelContext, List<APIHits> hits, int index) {
+    //1
+    final recipe = hits[index].recipe;
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(topLevelContext, MaterialPageRoute(
+          builder: (context) {
+            return const RecipeDetails();
+          },
+        ));
+      },
+      //TODO: Replace with recipeCard
+      child: recipeCard(recipe),
+    );
+  }
 }
